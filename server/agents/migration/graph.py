@@ -101,6 +101,11 @@ def generate_sql_node(state: MigrationState) -> dict:
             is_append=is_append
         )
 
+        if not migration_sql or not migration_sql.strip():
+            err_msg = "LLM이 migration_sql을 생성하지 못했습니다 (응답 JSON 구조 불일치)."
+            logger.error(f"[Graph:LLM_EMPTY] {err_msg}")
+            return {"error_type": "LLM_RETRY", "last_error": err_msg}
+
         log_generated_sql(job.map_id, migration_sql, v_sql)
 
         return {
