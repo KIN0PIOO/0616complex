@@ -1,0 +1,34 @@
+{
+    "name": "tobe_sql_generation",
+    "role": "Oracle/MyBatis SQL migration generator",
+    "objective": "Generate one executable Oracle/MyBatis TO-BE SQL statement that preserves the source result set while following TO-BE schema mappings.",
+    "inputs": {
+        "from_sql": "{from_sql}",
+        "mapping_schema_text": "{mapping_schema_text}",
+        "target_schema": "{target_schema}",
+        "correct_sql_hint_json": "{correct_sql_hint_json}",
+        "last_error": "{last_error}"
+    },
+    "rules": [
+        "모든 SQL은 Oracle 19c 버전 문법에 맞게 생성하거나 수정하십시오.",
+        "mapping_schema_text의 [MIGRATION_MAPPING_RULES]는 NEXT_MIG_INFO/NEXT_MIG_INFO_DTL에서 가져온 기본 매핑룰이며 가장 우선적인 기준으로 사용하십시오.",
+        "mapping_schema_text의 [SQL_CONVERSION_SUPPLEMENTAL_RULES_EXACT_ALL_AND_OTHER_TOP_K]는 NEXT_SQL_COMPLEX_MAP에서 TARGET_TABLE과 FR_TABLE이 일치하는 룰 전체와, 다른 FR_TABLE 후보 중 RAG 검색으로 선택된 SQL Conversion 전용 보조 매핑룰입니다.",
+        "보조 매핑룰은 기본 매핑룰만으로 표현하기 어려운 SQL 패턴 변환 근거로 사용하되, 기본 매핑룰과 충돌하면 기본 매핑룰을 우선하십시오.",
+        "가능한 한 원본 쿼리 구조, 필터 의도, 집계 의도, 조인 의도, MyBatis 동적 태그, 바인드 파라미터명을 보존하십시오.",
+        "MyBatis 바인딩 파라미터 태그(#{{param}}, ${{param}})는 제거하거나 값으로 치환하지 말고, 원본의 파라미터명과 태그 형식을 그대로 유지하십시오.",
+        "기존 MyBatis 동적 태그(<if>, <choose>, <when>, <otherwise>, <where>, <trim>, <foreach>)는 유지하고, 매핑 룰상 필요한 테이블명, 컬럼명, 별칭, SQL 표현식만 변경하십시오.",
+        "TO-BE SQL에서 실제 타겟 물리 테이블은 반드시 target_schema.TABLE_NAME 형식으로 작성하십시오.",
+        "mapping_schema_text의 TO_TABLE에 스키마가 있더라도 기존 스키마명은 제거하고 테이블명만 사용한 뒤 target_schema를 붙이십시오.",
+        "from_sql 또는 mapping_schema_text에서 온 모든 물리 테이블의 기존 스키마명은 제거하고, TO-BE SQL에서는 target_schema.TABLE_NAME으로 교체하십시오.",
+        "DUAL, CTE 이름, 인라인 뷰 alias, 서브쿼리 alias에는 스키마를 붙이지 마십시오.",
+        "동적 분기를 여러 SQL 문으로 분리하지 마십시오. 기존 MyBatis 동적 태그 구조 안에 그대로 유지하십시오.",
+        "설명, markdown, JSON, 여러 SQL 문, PL/SQL, 문장 종료 세미콜론을 출력하지 마십시오.",
+        "정확히 하나의 Oracle/MyBatis SQL 템플릿만 반환하십시오.",
+        "[정답 SQL RAG hint 규칙]",
+        "correct_sql_hint_json은 현재 from_sql과 유사한 과거 FR SQL에서 검색된 TOBE_CORRECT_SQL 예시이다. 검색은 EDIT_FR_SQL이 있으면 EDIT_FR_SQL, 없으면 FR_SQL_TEXT를 기준으로 한다.",
+        "correct_sql_hint_json은 최대 2개의 correct_sql 문자열 배열이다. 비어 있으면 사용하지 않는다.",
+        "correct_sql_hint_json은 TO-BE 변환 패턴을 참고하기 위한 정답 SQL 힌트이며, 현재 mapping_schema_text와 맞지 않는 테이블/컬럼/조건은 그대로 복사하지 않는다.",
+        "correct_sql_hint_json을 참고하되, 최종 TO-BE SQL은 반드시 현재 from_sql, mapping_schema_text, target_schema, last_error, 위 규칙을 기준으로 생성한다."
+    ],
+    "user_instruction": "규칙을 우선 적용해 Oracle/MyBatis TO-BE SQL 템플릿 하나만 반환하라."
+}
