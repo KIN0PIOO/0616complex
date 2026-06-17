@@ -14,6 +14,7 @@ from server.agents.migration.verifier import execute_verification
 from server.repositories.migration.repository import (
     update_job_status,
     check_dependencies,
+    check_prior_map_dependency,
     is_first_job_for_target,
     increment_batch_count,
 )
@@ -68,6 +69,15 @@ def fetch_ddl_node(state: MigrationState) -> dict:
 
 def check_dependency_node(state: MigrationState) -> dict:
     job = state["next_sql_info"]
+
+    prior_status = check_prior_map_dependency(job.map_id, job.prior_map_id)
+    if prior_status != "READY":
+        if str(prior_status or "").strip().upper() in ("FAIL", "SKIP"):
+            logger.warning(f"[Graph:DEP] map_id={job.map_id} | PRIOR_MAP_ID={job.prior_map_id} 선행 작업 {prior_status}. 후속 작업을 SKIP 합니다.")
+            return {"status": "SKIP", "error_type": "DEPENDENCY_FAIL", "last_error": f"PRIOR_MAP_ID={job.prior_map_id} 상태: {prior_status}"}
+        logger.warning(f"[Graph:DEP] map_id={job.map_id} | PRIOR_MAP_ID={job.prior_map_id} 선행 작업 미완료 ({prior_status}). 다음 cycle까지 대기합니다.")
+        return {"status": "WAITING", "error_type": "DEPENDENCY_WAIT", "last_error": f"PRIOR_MAP_ID={job.prior_map_id} 상태: {prior_status}"}
+
     dep_status = check_dependencies(job.map_id, job.to_table, job.priority)
 
     if dep_status != "READY":

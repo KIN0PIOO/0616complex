@@ -39,7 +39,7 @@ def get_pending_jobs() -> list[MappingRule]:
             R.USE_YN, R.TARGET_YN, R.PRIORITY,
             R.MIG_SQL, R.VERIFY_SQL, R.STATUS, R.CORRECT_SQL, R.USER_EDITED,
             R.BATCH_CNT, R.ELAPSED_SECONDS, R.RETRY_COUNT,
-            R.CREATED_AT, R.UPD_TS, R.CONDITION,
+            R.CREATED_AT, R.UPD_TS, R.CONDITION, R.PRIOR_MAP_ID,
             D.MAP_DTL, D.FR_COL, D.TO_COL
         FROM {map_table} R
         LEFT JOIN {detail_table} D ON R.MAP_ID = D.MAP_ID
@@ -85,16 +85,17 @@ def get_pending_jobs() -> list[MappingRule]:
                         created_at=row[15],
                         upd_ts=row[16],
                         condition=ensure_str(row[17]),
+                        prior_map_id=row[18],
                         details=[]
                     )
                     jobs[map_id] = rule
 
-                if row[18] is not None:
+                if row[19] is not None:
                     detail = MappingDetail(
-                        map_dtl=row[18],
+                        map_dtl=row[19],
                         map_id=map_id,
-                        fr_col=ensure_str(row[19]),
-                        to_col=ensure_str(row[20])
+                        fr_col=ensure_str(row[20]),
+                        to_col=ensure_str(row[21])
                     )
                     jobs[map_id].details.append(detail)
 
@@ -176,6 +177,39 @@ def check_dependencies(map_id: int, to_table: str, priority: int) -> str:
             return "READY"
     except Exception as e:
         logger.error(f"[Repository] 의존성 체크 중 오류: {e}")
+        return "ERROR"
+
+def check_prior_map_dependency(map_id: int, prior_map_id: int | None) -> str:
+    """PRIOR_MAP_ID로 명시된 선행 작업의 STATUS를 확인합니다.
+
+    PRIOR_MAP_ID가 NULL이면 의존성이 없으므로 항상 "READY"를 반환합니다.
+    """
+    if prior_map_id is None:
+        return "READY"
+
+    logger.debug(f"[Repository] map_id={map_id} | PRIOR_MAP_ID={prior_map_id} 의존성 체크 시작")
+
+    map_table = get_mapping_rule_table()
+    query = f"SELECT STATUS FROM {map_table} WHERE MAP_ID = :1"
+
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, (prior_map_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                logger.warning(f"[Repository] map_id={map_id} | PRIOR_MAP_ID={prior_map_id} 대상을 찾을 수 없음.")
+                return "READY"
+
+            status = ensure_str(row[0])
+            if status != "PASS":
+                logger.warning(f"[Repository] map_id={map_id} | PRIOR_MAP_ID={prior_map_id} 상태가 {status} 임.")
+                return status if status else "PENDING"
+
+            return "READY"
+    except Exception as e:
+        logger.error(f"[Repository] PRIOR_MAP_ID 의존성 체크 중 오류: {e}")
         return "ERROR"
 
 def is_first_job_for_target(map_id: int, to_table: str, priority: int) -> bool:

@@ -20,6 +20,7 @@ class MappingRule:
     use_yn: str
     target_yn: str
     priority: int
+    prior_map_id: Optional[int] = None
     mig_sql: Optional[str] = None
     verify_sql: Optional[str] = None
     status: Optional[str] = None
